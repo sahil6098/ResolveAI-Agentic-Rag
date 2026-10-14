@@ -60,3 +60,22 @@ def ensure_index():
             time.sleep(1)
 
     return pc.Index(settings.pinecone_index_name)
+
+def get_vectorstore():
+    global _vectorstore
+    if _vectorstore is None:
+        index = ensure_index()
+        _vectorstore = PineconeVectorStore(
+            index=index,
+            embedding=get_embeddings(),
+            namespace=settings.pinecone_namespace,
+        )
+    return _vectorstore
+
+def get_retriever():
+    return get_vectorstore().as_retriever(search_kwargs={"k": settings.top_k})
+
+
+def add_documents(chunks):
+    store = get_vectorstore()
+    return store.add_documents(chunks)
