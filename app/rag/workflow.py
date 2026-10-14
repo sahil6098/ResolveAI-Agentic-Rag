@@ -6,6 +6,7 @@ from langgraph.graph import StateGraph, START, END
 from app.core.config import get_settings
 from app.rag.state import AgentState, RouteDecision, EvidenceGrade
 from app.rag.vectorstore import get_retriever
+from langchain_groq import ChatGroq
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -16,12 +17,12 @@ _web_search = None
 def llm():
     global _llm
     if _llm is None:
-        if not settings.openai_api_key:
-            raise RuntimeError("OPENAI_API_KEY is missing")
-        _llm = ChatOpenAI(
-            model=settings.openai_model,
+        if not settings.groq_api_key:
+            raise RuntimeError("GROQ_API_KEY is missing")
+        _llm = ChatGroq(
+            model=settings.groq_model,
             temperature=0,
-            api_key=settings.openai_api_key,
+            api_key=settings.groq_api_key,
         )
     return _llm
 
