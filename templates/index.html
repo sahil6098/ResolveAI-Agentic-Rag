@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Resolve-AI — Intelligent Agentic RAG IT Support Copilot. Get instant answers from your company knowledge base with AI-powered search and web fallback." />
+  <title>Resolve-AI · IT Support Copilot</title>
+
+  <!-- Favicon (inline SVG as data URI) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%2314b8a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='8' fill='url(%23g)'/%3E%3Cpath d='M16 6L8 10l8 4 8-4-8-4z' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M8 18l8 4 8-4' fill='none' stroke='white' stroke-width='1.5'/%3E%3Cpath d='M8 14l8 4 8-4' fill='none' stroke='white' stroke-width='1.5'/%3E%3C/svg%3E" />
+
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- Animated background mesh -->
+<div class="bg-mesh"></div>
+
+<div class="app-container">
+
+  <!-- ═══ Top Navigation ═══ -->
+  <nav class="top-nav">
+    <div class="brand">
+      <div class="brand-logo">
+        <svg viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+          <path d="M2 17l10 5 10-5"/>
+          <path d="M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>Resolve-AI</h1>
+        <span>Agentic RAG Copilot</span>
+      </div>
+    </div>
+
+    <div class="nav-actions">
+      <div class="status-pill">
+        <div class="status-dot"></div>
+        Online
+      </div>
+      <button class="nav-btn" id="new-chat-btn">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        <span>New Chat</span>
+      </button>
+      <button class="nav-btn" id="workflow-btn">
+        <svg viewBox="0 0 24 24"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        <span>How it Works</span>
+      </button>
+      <button class="nav-btn" id="upload-btn">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <span>Upload KB</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ═══ Chat Area ═══ -->
+  <div class="chat-area">
+    <div class="messages-container" id="messages-container">
+
+      <!-- Welcome Screen -->
+      <div class="welcome-screen" id="welcome-screen">
+        <div class="welcome-icon">
+          <div class="welcome-icon-ring"></div>
+          <div class="welcome-icon-inner">
+            <svg viewBox="0 0 24 24">
+              <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+              <path d="M2 17l10 5 10-5"/>
+              <path d="M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+        </div>
+
+        <h2>How can I help you today?</h2>
+        <p>
+          I'm your AI-powered IT support copilot. I search your company's private knowledge base
+          first, then fall back to the web if needed — so you always get the most relevant answer.
+        </p>
+
+        <div class="welcome-cards">
+          <div class="welcome-card" data-question="How do I reset my password?">
+            <div class="welcome-card-icon">🔑</div>
+            <h4>Password Reset</h4>
+            <p>Step-by-step guide for resetting your company password</p>
+          </div>
+          <div class="welcome-card" data-question="How do I connect to the company VPN?">
+            <div class="welcome-card-icon">🌐</div>
+            <h4>VPN Setup</h4>
+            <p>Connect securely to the company network from anywhere</p>
+          </div>
+          <div class="welcome-card" data-question="How do I set up MFA on my account?">
+            <div class="welcome-card-icon">🛡️</div>
+            <h4>MFA / Security</h4>
+            <p>Enable multi-factor authentication for your account</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ═══ Input Area ═══ -->
+    <div class="input-area">
+      <div class="input-wrapper">
+        <textarea
+          id="chat-input"
+          rows="1"
+          placeholder="Ask me anything about IT support..."
+          autocomplete="off"
+          spellcheck="true"
+        ></textarea>
+        <button class="send-btn" id="send-btn" aria-label="Send message">
+          <svg viewBox="0 0 24 24">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="input-hint">
+        Press <kbd>Enter</kbd> to send · <kbd>Shift + Enter</kbd> for new line
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ═══ New Chat Floating Button ═══ -->
+<button class="new-chat-float" id="new-chat-float" aria-label="New chat">
+  <svg viewBox="0 0 24 24">
+    <line x1="12" y1="5" x2="12" y2="19"/>
+    <line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+</button>
+
+<!-- ═══ Workflow Modal ═══ -->
+<div class="modal-overlay" id="workflow-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>⚙️ How Resolve-AI Works</h2>
+      <button class="modal-close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <div class="workflow-diagram">
+      <div class="wf-node start">
+        <div class="wf-node-title">📝 Your Question</div>
+        <div class="wf-node-desc">You type a question in the chat</div>
+      </div>
+
+      <div class="wf-arrow">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      </div>
+
+      <div class="wf-node">
+        <div class="wf-node-title">🧠 Smart Router</div>
+        <div class="wf-node-desc">AI decides if this is an IT question or casual chat</div>
+      </div>
+
+      <div class="wf-arrow">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        <div class="wf-arrow-label">IT Question ↓</div>
+      </div>
+
+      <div class="wf-node">
+        <div class="wf-node-title">🔍 KB Retrieval</div>
+        <div class="wf-node-desc">Searches your company's private knowledge base via Pinecone</div>
+      </div>
+
+      <div class="wf-arrow">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      </div>
+
+      <div class="wf-node">
+        <div class="wf-node-title">📊 Evidence Grading</div>
+        <div class="wf-node-desc">AI evaluates if the retrieved evidence is sufficient</div>
+      </div>
+
+      <div class="wf-arrow">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+      </div>
+
+      <div class="wf-branch">
+        <div class="wf-node" style="border-color: #a7f3d0;">
+          <div class="wf-node-title">✅ Good Evidence</div>
+          <div class="wf-node-desc">Answer from private KB</div>
+        </div>
+        <div class="wf-node" style="border-color: #fde68a;">
+          <div class="wf-node-title">🌐 Weak Evidence</div>
+          <div class="wf-node-desc">Falls back to web search via Tavily</div>
+        </div>
+      </div>
+
+      <div class="wf-arrow">
+        <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        <div class="wf-arrow-label">If web also weak → Query Rewrite & Retry</div>
+      </div>
+
+      <div class="wf-node end">
+        <div class="wf-node-title">💬 Answer Delivered</div>
+        <div class="wf-node-desc">With source badge, citations, and full workflow trace</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Upload Modal ═══ -->
+<div class="modal-overlay" id="upload-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📄 Upload to Knowledge Base</h2>
+      <button class="modal-close">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+
+    <input
+      type="password"
+      class="admin-key-input"
+      id="admin-key-input"
+      placeholder="Enter admin API key..."
+    />
+
+    <div class="upload-zone" id="upload-zone">
+      <svg viewBox="0 0 24 24">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <h3>Drop your file here</h3>
+      <p>or click to browse</p>
+      <div class="upload-formats">
+        <span class="upload-format-tag">.pdf</span>
+        <span class="upload-format-tag">.docx</span>
+        <span class="upload-format-tag">.txt</span>
+        <span class="upload-format-tag">.md</span>
+      </div>
+    </div>
+
+    <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" style="display:none" />
+
+    <div class="upload-progress" id="upload-progress">
+      <div class="upload-progress-bar">
+        <div class="upload-progress-fill" id="upload-progress-fill"></div>
+      </div>
+      <div class="upload-status" id="upload-status">Uploading...</div>
+    </div>
+
+    <div class="upload-result" id="upload-result"></div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

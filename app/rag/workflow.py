@@ -7,8 +7,25 @@ from app.core.config import get_settings
 from app.rag.state import AgentState, RouteDecision, EvidenceGrade
 from app.rag.vectorstore import get_retriever
 from langchain_groq import ChatGroq
+from langchain_core.exceptions import OutputParserException
 
 logger = logging.getLogger(__name__)
+
+REFUSAL_ANSWER = (
+    "I'm sorry, but I can only assist with enterprise IT support topics such as "
+    "VPN, passwords, MFA, device setup, software access, and troubleshooting. "
+    "Please ask a work-related IT question."
+)
+
+REFUSAL_STATE_PATCH = {
+    "answer": REFUSAL_ANSWER,
+    "source_used": "safety_refusal",
+}
+
+def _is_refusal_error(exc: Exception) -> bool:
+    """Return True for LLM safety refusals or JSON-parse failures on refusals."""
+    msg = str(exc).lower()
+    return any(kw in msg for kw in ("refusal", "json_validate_failed", "failed to generate json", "outputparserexception", "invalid_request_error"))
 settings = get_settings()
 
 _llm = None
@@ -45,7 +62,8 @@ def add_trace(state: AgentState, message: str):
 
 def route_question(state: AgentState):
     router = llm().with_structured_output(RouteDecision, method="json_mode")
-    decision = router.invoke(f"""
+    try:
+        decision = router.invoke(f"""
 You route messages for an enterprise IT support assistant.
 Use kb for questions about company IT policies, VPN, password reset, MFA, laptop setup,
 software access, security, email, devices, troubleshooting, or technology support.
@@ -53,9 +71,16 @@ Use direct only for greetings, thanks, or casual chat that needs no company know
 Question: {state['question']}
 Return valid JSON like {{"route":"kb"}}.
 """)
+    except Exception as exc:
+        if _is_refusal_error(exc):
+            logger.warning("Router refused unsafe question: %s", state['question'])
+            return {**REFUSAL_STATE_PATCH, "trace": add_trace(state, "Router → SAFETY REFUSAL")}
+        raise
     return {"source_used": decision.route, "trace": add_trace(state, f"Router → {decision.route.upper()}")}
 
-def route_after_router(state: AgentState) -> Literal["retrieve_kb", "direct_answer"]:
+def route_after_router(state: AgentState) -> Literal["retrieve_kb", "direct_answer", "insufficient"]:
+    if state["source_used"] == "safety_refusal":
+        return "insufficient"  # short-circuit — answer already set
     return "retrieve_kb" if state["source_used"] == "kb" else "direct_answer"
 
 def retrieve_kb(state: AgentState):
@@ -65,13 +90,19 @@ def retrieve_kb(state: AgentState):
 def grade_kb(state: AgentState):
     grader = llm().with_structured_output(EvidenceGrade, method="json_mode")
     context = "\n\n".join(f"Source: {d.metadata.get('source','unknown')}\n{d.page_content}" for d in state["kb_docs"])
-    grade = grader.invoke(f"""
+    try:
+        grade = grader.invoke(f"""
 You grade evidence for an enterprise IT support assistant.
 Question: {state['question']}
 Private company KB evidence:\n{context}
 Return good only if the evidence is sufficient to answer confidently and specifically.
 Otherwise return weak. JSON: {{"grade":"good"}} or {{"grade":"weak"}}.
 """)
+    except Exception as exc:
+        if _is_refusal_error(exc):
+            logger.warning("KB grader refused unsafe question: %s", state['question'])
+            return {**REFUSAL_STATE_PATCH, "kb_grade": "weak", "trace": add_trace(state, "KB grader → SAFETY REFUSAL")}
+        raise
     return {"kb_grade": grade.grade, "trace": add_trace(state, f"KB evidence grade → {grade.grade.upper()}")}
 
 def after_kb(state: AgentState) -> Literal["generate_from_kb", "search_web"]:
@@ -98,12 +129,18 @@ def search_web(state: AgentState):
 
 def grade_web(state: AgentState):
     grader = llm().with_structured_output(EvidenceGrade, method="json_mode")
-    grade = grader.invoke(f"""
+    try:
+        grade = grader.invoke(f"""
 Question: {state['question']}
 Web evidence:\n{state['web_results']}
 Return good if the evidence is sufficient and directly relevant; otherwise weak.
 Return valid JSON like {{"grade":"good"}}.
 """)
+    except Exception as exc:
+        if _is_refusal_error(exc):
+            logger.warning("Web grader refused unsafe question: %s", state['question'])
+            return {**REFUSAL_STATE_PATCH, "web_grade": "weak", "trace": add_trace(state, "Web grader → SAFETY REFUSAL")}
+        raise
     return {"web_grade": grade.grade, "trace": add_trace(state, f"Web evidence grade → {grade.grade.upper()}")}
 
 def after_web(state: AgentState) -> Literal["generate_from_web", "rewrite_query", "insufficient"]:
@@ -179,7 +216,7 @@ def build_graph():
 
     graph.add_edge(START, "route_question")
     graph.add_conditional_edges("route_question", route_after_router, {
-        "retrieve_kb": "retrieve_kb", "direct_answer": "direct_answer"
+        "retrieve_kb": "retrieve_kb", "direct_answer": "direct_answer", "insufficient": "insufficient"
     })
     graph.add_edge("retrieve_kb", "grade_kb")
     graph.add_conditional_edges("grade_kb", after_kb, {
@@ -198,7 +235,28 @@ def build_graph():
 
 agent_graph = build_graph()
 
+# Keywords that immediately short-circuit the graph before any LLM call
+_BLOCKED_KEYWORDS = [
+    "bomb", "weapon", "explosive", "hack", "malware", "ransomware",
+    "jailbreak", "forget your instructions", "ignore your instructions",
+    "how to make", "how to build", "kill", "murder", "drug",
+]
+
+def _is_blocked(question: str) -> bool:
+    q = question.lower()
+    return any(kw in q for kw in _BLOCKED_KEYWORDS)
+
 def ask(question: str):
+    # Fast-path safety guard — block before touching any LLM node
+    if _is_blocked(question):
+        logger.warning("Blocked unsafe question at pre-check: %s", question)
+        return {
+            **REFUSAL_STATE_PATCH,
+            "trace": ["Safety pre-check → BLOCKED"],
+            "citations": [],
+            "current_query": question,
+        }
+
     initial: AgentState = {
         "question": question,
         "current_query": question,
@@ -212,4 +270,4 @@ def ask(question: str):
         "trace": [],
         "citations": [],
     }
-    return agent_graph.invoke(initial)  
+    return agent_graph.invoke(initial)

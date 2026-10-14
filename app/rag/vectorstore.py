@@ -1,7 +1,7 @@
 import time
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
-from langchain_pinecone import PineconeVectorStore
+from langchain_pinecone import Pinecone as PineconeVectorStore
 from app.core.config import get_settings
 from langchain_huggingface import HuggingFaceEmbeddings
 
